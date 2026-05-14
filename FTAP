@@ -1,0 +1,73 @@
+-- LocalScript for Fling Things and People → StarterPlayer > StarterPlayerScripts
+-- Super Fling (500 Strength) | Toggle with T | Fling GRABS Super Far
+-- + ANTI-FLUNG: Auto-teleport back to safety if flinged out of map!
+
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local Workspace = game:GetService("Workspace")
+local RunService = game:GetService("RunService")
+local Debris = game:GetService("Debris")
+
+local LocalPlayer = Players.LocalPlayer
+
+local SuperFlingEnabled = false
+local Strength = 500  -- INSANE far (horizontal only)
+local SAFE_Y = -20    -- Void threshold
+local SAFE_POS = Vector3.new(0, 55, 0)  -- Spawn/platform center (works in all maps)
+
+-- Toggle Super Fling with T
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    if input.KeyCode == Enum.KeyCode.T then
+        SuperFlingEnabled = not SuperFlingEnabled
+        print("Fling Things & People Super Fling:", SuperFlingEnabled and "ON (500 Strength)" or "OFF")
+    end
+end)
+
+-- Detect GrabParts (game's grab system)
+Workspace.ChildAdded:Connect(function(model)
+    if model.Name ~= "GrabParts" then return end
+    if not SuperFlingEnabled then return end
+    
+    local grabPart = model:WaitForChild("GrabPart")
+    local weldConstraint = grabPart:WaitForChild("WeldConstraint")
+    local weldPart = weldConstraint.Part1
+    if not weldPart then return end
+    
+    print("Super Fling Ready! (Grab something & right-click release)")
+    
+    -- On grab release (model destroyed)
+    model:GetPropertyChangedSignal("Parent"):Connect(function()
+        if model.Parent then return end  -- Still grabbed
+        
+        local lastInput = UserInputService:GetLastInputType()
+        
+        if lastInput == Enum.UserInputType.MouseButton2 then  -- Right-click = SUPER FLING!
+            print("🚀 SUPER FLING ACTIVATED!")
+            local bodyVel = Instance.new("BodyVelocity")
+            bodyVel.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+            bodyVel.Velocity = Workspace.CurrentCamera.CFrame.LookVector * Strength  -- Horizontal only (no orbital)
+            bodyVel.Parent = weldPart
+            Debris:AddItem(bodyVel, 1.5)  -- Cleanup
+            
+        elseif lastInput == Enum.UserInputType.MouseButton1 then  -- Left-click = Cancel
+            print("Fling Cancelled")
+        end
+    end)
+end)
+
+-- ANTI-FLUNG: Auto TP back to safety if out of map (ALWAYS ON)
+RunService.Heartbeat:Connect(function()
+    local character = LocalPlayer.Character
+    if character then
+        local hrp = character:FindFirstChild("HumanoidRootPart")
+        if hrp and hrp.Position.Y < SAFE_Y then
+            hrp.CFrame = CFrame.new(SAFE_POS)
+            hrp.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+            hrp.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
+            print("🛡️ TELEPORTED BACK TO SAFETY!")
+        end
+    end
+end)
+
+print("Fling Things & People Super Fling + Anti-Fling Loaded | Toggle Super Fling with T | Anti-Fling ALWAYS ON | No Orbital")
